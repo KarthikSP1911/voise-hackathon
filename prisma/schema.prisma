@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          UserRole       @default(PATIENT)
+  phone         String?
+  dateOfBirth   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  notifications Notification[]
+  triageCases   TriageCase[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model TriageCase {
+  id             String         @id @default(cuid())
+  userId         String
+  rawInput       String
+  inputType      String
+  transcript     String?
+  structuredData Json?
+  urgencyLevel   UrgencyLevel?
+  aiSummary      String?
+  redFlags       Json?
+  rationale      String?
+  status         CaseStatus     @default(OPEN)
+  clinicianNotes String?
+  staffOverride  Boolean        @default(false)
+  overrideReason String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  resolvedAt     DateTime?
+  aiOutputs      AIOutput[]
+  notifications  Notification[]
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([urgencyLevel])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AIOutput {
+  id             String     @id @default(cuid())
+  triageCaseId   String
+  modelUsed      String
+  prompt         String?
+  response       String
+  processingTime Int?
+  createdAt      DateTime   @default(now())
+  triageCase     TriageCase @relation(fields: [triageCaseId], references: [id], onDelete: Cascade)
+
+  @@index([triageCaseId])
+}
+
+model Notification {
+  id           String      @id @default(cuid())
+  userId       String
+  triageCaseId String?
+  type         String
+  title        String
+  message      String
+  isRead       Boolean     @default(false)
+  sentAt       DateTime?
+  createdAt    DateTime    @default(now())
+  triageCase   TriageCase? @relation(fields: [triageCaseId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+enum UserRole {
+  PATIENT
+  STAFF
+  ADMIN
+}
+
+enum UrgencyLevel {
+  SELF_CARE
+  CLINIC_VISIT
+  URGENT_VISIT
+  EMERGENCY
+}
+
+enum CaseStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
